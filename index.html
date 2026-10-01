@@ -1,0 +1,2313 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="display" content="standalone" />
+  <meta name="screen-orientation" content="landscape" />
+  <title>Marcador de Pádel</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    /* ===================================================================
+       ESTILOS GLOBALES Y FORZADO DE ORIENTACIÓN HORIZONTAL
+       =================================================================== */
+
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@700;800;900&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Outfit', sans-serif;
+      background: #000;
+    }
+
+    /* Forzar landscape: rotamos la UI si el dispositivo está en portrait */
+    @media (orientation: portrait) {
+      #app {
+        transform: rotate(90deg);
+        transform-origin: top left;
+        width: 100vh;
+        height: 100vw;
+        position: absolute;
+        top: 0;
+        left: 100vw;
+      }
+    }
+
+    @media (orientation: landscape) {
+      #app {
+        width: 100vw;
+        height: 100vh;
+      }
+    }
+
+    /* ===================================================================
+       LAYOUT PRINCIPAL
+       =================================================================== */
+
+    #app {
+      display: flex;
+      flex-direction: row;
+      background: #0a0f0a;
+      position: relative;
+    }
+
+    .team-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      cursor: pointer;
+      transition: background-color 0.1s ease;
+      overflow: hidden;
+    }
+
+    .team-panel:active {
+      filter: brightness(1.3);
+    }
+
+    /* Equipo A - Verde oscuro */
+    .team-a {
+      background: linear-gradient(135deg, #0a1a0a 0%, #0d2818 50%, #0a1a0a 100%);
+      border-right: 2px solid #1a3a1a;
+    }
+
+    /* Equipo B - Azul muy oscuro */
+    .team-b {
+      background: linear-gradient(225deg, #0a0a1a 0%, #0d1828 50%, #0a0a1a 100%);
+      border-left: 2px solid #1a1a3a;
+    }
+
+    /* Separador central luminoso */
+    .divider {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 4px;
+      height: 100%;
+      background: linear-gradient(180deg, transparent 0%, #2eff6a 20%, #2eff6a 80%, transparent 100%);
+      z-index: 10;
+      box-shadow: 0 0 20px rgba(46, 255, 106, 0.3);
+    }
+
+    /* ===================================================================
+       ZONA SUPERIOR: SETS Y JUEGOS (20%)
+       =================================================================== */
+
+    .score-header {
+      height: 20%;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 4px 8px;
+      position: relative;
+    }
+
+    .team-name {
+      font-size: clamp(0.7rem, 2vw, 1rem);
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      opacity: 0.7;
+      margin-bottom: 2px;
+    }
+
+    .team-a .team-name { color: #2eff6a; }
+    .team-b .team-name { color: #6aafff; }
+
+    .sets-display {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .set-score {
+      font-size: clamp(0.9rem, 2.5vw, 1.4rem);
+      font-weight: 800;
+      color: #ffffff;
+      background: rgba(255,255,255,0.08);
+      border-radius: 6px;
+      padding: 2px 8px;
+      min-width: 28px;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .set-score.current {
+      border-color: #ffd700;
+      color: #ffd700;
+      background: rgba(255, 215, 0, 0.1);
+      box-shadow: 0 0 8px rgba(255, 215, 0, 0.2);
+    }
+
+    .set-score.won {
+      color: #2eff6a;
+      border-color: #2eff6a;
+      background: rgba(46, 255, 106, 0.1);
+    }
+
+    .games-label {
+      font-size: clamp(0.55rem, 1.5vw, 0.75rem);
+      color: rgba(255,255,255,0.4);
+      margin-top: 2px;
+      letter-spacing: 0.1em;
+    }
+
+    /* ===================================================================
+       ZONA PRINCIPAL: PUNTUACIÓN DEL JUEGO ACTUAL (80%)
+       =================================================================== */
+
+    .point-display {
+      height: 80%;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+
+    .current-point {
+      font-size: clamp(5rem, 22vw, 14rem);
+      font-weight: 900;
+      line-height: 1;
+      text-shadow:
+        0 0 30px rgba(255, 255, 255, 0.3),
+        0 0 60px rgba(255, 255, 255, 0.1);
+      transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  opacity 0.15s ease;
+    }
+
+    .team-a .current-point { color: #ffffff; }
+    .team-b .current-point { color: #ffffff; }
+
+    /* Indicador de ventaja */
+    .current-point.advantage {
+      font-size: clamp(2.5rem, 10vw, 7rem);
+    }
+
+    .team-a .current-point.advantage { color: #2eff6a; }
+    .team-b .current-point.advantage { color: #6aafff; }
+
+    /* Animación de punto anotado */
+    @keyframes pointScored {
+      0%   { transform: scale(1);   opacity: 1; }
+      30%  { transform: scale(1.15); opacity: 1; }
+      100% { transform: scale(1);   opacity: 1; }
+    }
+
+    .point-animate {
+      animation: pointScored 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* ===================================================================
+       INDICADORES DE SERVICIO Y ESTADO
+       =================================================================== */
+
+    .serve-indicator {
+      position: absolute;
+      top: 12px;
+      font-size: clamp(1rem, 3vw, 1.8rem);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .team-a .serve-indicator { right: 12px; }
+    .team-b .serve-indicator { left: 12px; }
+
+    .serve-indicator.active {
+      opacity: 1;
+    }
+
+    /* ===================================================================
+       BARRA INFERIOR: CONTROLES Y INFO
+       =================================================================== */
+
+    .bottom-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 32px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      background: rgba(0,0,0,0.6);
+      z-index: 20;
+      padding: 0 12px;
+    }
+
+    .bottom-bar span {
+      font-size: clamp(0.5rem, 1.2vw, 0.65rem);
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 0.05em;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 4px;
+    }
+
+    .status-dot.on  { background: #2eff6a; box-shadow: 0 0 6px #2eff6a; }
+    .status-dot.off { background: #ff4444; }
+
+    /* ===================================================================
+       MODAL DE CONFIRMACIÓN
+       =================================================================== */
+
+    .modal-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      backdrop-filter: blur(8px);
+    }
+
+    .modal-overlay.visible {
+      display: flex;
+    }
+
+    .modal-box {
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      border: 2px solid #ffd700;
+      border-radius: 16px;
+      padding: 24px 40px;
+      text-align: center;
+      max-width: 80%;
+      box-shadow: 0 0 40px rgba(255, 215, 0, 0.2);
+    }
+
+    .modal-box h2 {
+      color: #ffd700;
+      font-size: clamp(1.2rem, 3vw, 1.8rem);
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .modal-box p {
+      color: rgba(255,255,255,0.7);
+      font-size: clamp(0.7rem, 1.8vw, 1rem);
+      margin-bottom: 20px;
+    }
+
+    .modal-buttons {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+    }
+
+    .modal-btn {
+      padding: 10px 28px;
+      border-radius: 10px;
+      font-size: clamp(0.8rem, 2vw, 1.1rem);
+      font-weight: 800;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.2s ease;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    .modal-btn.confirm {
+      background: #ff4444;
+      color: #fff;
+      border-color: #ff6666;
+    }
+
+    .modal-btn.confirm:active { background: #cc0000; }
+
+    .modal-btn.cancel {
+      background: transparent;
+      color: #fff;
+      border-color: rgba(255,255,255,0.3);
+    }
+
+    .modal-btn.cancel:active { background: rgba(255,255,255,0.1); }
+
+    /* ===================================================================
+       OVERLAY DE VICTORIA
+       =================================================================== */
+
+    .victory-overlay {
+      position: absolute;
+      inset: 0;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 90;
+      backdrop-filter: blur(4px);
+    }
+
+    .victory-overlay.visible {
+      display: flex;
+    }
+
+    .victory-box {
+      text-align: center;
+      animation: victoryPulse 2s ease-in-out infinite;
+    }
+
+    @keyframes victoryPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    .victory-box h1 {
+      font-size: clamp(2rem, 8vw, 5rem);
+      font-weight: 900;
+      color: #ffd700;
+      text-shadow: 0 0 40px rgba(255, 215, 0, 0.5);
+      margin-bottom: 8px;
+    }
+
+    .victory-box p {
+      font-size: clamp(1rem, 3vw, 1.8rem);
+      color: #ffffff;
+      opacity: 0.8;
+    }
+
+    .victory-box .restart-hint {
+      font-size: clamp(0.6rem, 1.5vw, 0.9rem);
+      color: rgba(255,255,255,0.4);
+      margin-top: 16px;
+    }
+
+    /* ===================================================================
+       TOAST DE FEEDBACK
+       =================================================================== */
+
+    .toast {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.8);
+      background: rgba(0, 0, 0, 0.9);
+      border: 1px solid rgba(255, 215, 0, 0.4);
+      color: #ffd700;
+      padding: 8px 20px;
+      border-radius: 10px;
+      font-size: clamp(0.7rem, 2vw, 1rem);
+      font-weight: 700;
+      z-index: 80;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .toast.visible {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    /* ===================================================================
+       TIEBREAK INDICATOR
+       =================================================================== */
+
+    .tiebreak-badge {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -110%);
+      background: rgba(255, 215, 0, 0.15);
+      border: 1px solid #ffd700;
+      color: #ffd700;
+      font-size: clamp(0.55rem, 1.3vw, 0.75rem);
+      font-weight: 800;
+      padding: 3px 12px;
+      border-radius: 20px;
+      z-index: 15;
+      display: none;
+      letter-spacing: 0.1em;
+    }
+
+    .tiebreak-badge.visible {
+      display: block;
+    }
+
+    /* ===================================================================
+       OVERLAY DE SELECCIÓN DE SAQUE
+       =================================================================== */
+
+    .serve-select-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.92);
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 110;
+      backdrop-filter: blur(12px);
+    }
+
+    .serve-select-overlay.visible {
+      display: flex;
+    }
+
+    .serve-select-title {
+      font-size: clamp(1rem, 3vw, 1.6rem);
+      font-weight: 800;
+      color: #ffd700;
+      letter-spacing: 0.1em;
+      margin-bottom: 6px;
+      text-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+    }
+
+    .serve-select-subtitle {
+      font-size: clamp(0.6rem, 1.5vw, 0.85rem);
+      color: rgba(255,255,255,0.45);
+      margin-bottom: 24px;
+      letter-spacing: 0.05em;
+    }
+
+    .serve-select-panels {
+      display: flex;
+      width: 80%;
+      max-width: 700px;
+      gap: 16px;
+    }
+
+    .serve-select-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 24px 16px;
+      border-radius: 16px;
+      cursor: pointer;
+      border: 2px solid rgba(255,255,255,0.12);
+      transition: all 0.2s ease;
+      background: rgba(255,255,255,0.04);
+    }
+
+    .serve-select-btn:active {
+      transform: scale(0.96);
+    }
+
+    .serve-select-btn.team-a-btn {
+      border-color: rgba(46, 255, 106, 0.25);
+    }
+    .serve-select-btn.team-a-btn:hover,
+    .serve-select-btn.team-a-btn:active {
+      background: rgba(46, 255, 106, 0.1);
+      border-color: #2eff6a;
+      box-shadow: 0 0 30px rgba(46, 255, 106, 0.15);
+    }
+
+    .serve-select-btn.team-b-btn {
+      border-color: rgba(106, 175, 255, 0.25);
+    }
+    .serve-select-btn.team-b-btn:hover,
+    .serve-select-btn.team-b-btn:active {
+      background: rgba(106, 175, 255, 0.1);
+      border-color: #6aafff;
+      box-shadow: 0 0 30px rgba(106, 175, 255, 0.15);
+    }
+
+    .serve-select-btn .serve-emoji {
+      font-size: clamp(2rem, 6vw, 3.5rem);
+      margin-bottom: 8px;
+    }
+
+    .serve-select-btn .serve-team-name {
+      font-size: clamp(0.9rem, 2.5vw, 1.3rem);
+      font-weight: 800;
+      letter-spacing: 0.1em;
+    }
+
+    .serve-select-btn.team-a-btn .serve-team-name { color: #2eff6a; }
+    .serve-select-btn.team-b-btn .serve-team-name { color: #6aafff; }
+
+    /* ===================================================================
+       BOTÓN DE MICRÓFONO (RECONOCIMIENTO DE VOZ)
+       =================================================================== */
+
+    .mic-button {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.2);
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      z-index: 25;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(4px);
+    }
+
+    .mic-button svg {
+      width: 20px;
+      height: 20px;
+      transition: fill 0.3s ease;
+    }
+
+    /* Estado: Escuchando activamente (verde) */
+    .mic-button.listening {
+      border-color: #2eff6a;
+      box-shadow: 0 0 12px rgba(46, 255, 106, 0.3);
+    }
+    .mic-button.listening svg { fill: #2eff6a; }
+
+    /* Animación de pulso cuando escucha */
+    @keyframes micPulse {
+      0%, 100% { box-shadow: 0 0 8px rgba(46, 255, 106, 0.3); }
+      50% { box-shadow: 0 0 18px rgba(46, 255, 106, 0.6); }
+    }
+    .mic-button.listening {
+      animation: micPulse 1.5s ease-in-out infinite;
+    }
+
+    /* Estado: Pausado por TTS hablando (amarillo) */
+    .mic-button.paused {
+      border-color: #ffd700;
+      box-shadow: 0 0 10px rgba(255, 215, 0, 0.25);
+      animation: none;
+    }
+    .mic-button.paused svg { fill: #ffd700; }
+
+    /* Estado: Apagado / error / denegado (rojo) */
+    .mic-button.off {
+      border-color: #ff4444;
+      box-shadow: none;
+      animation: none;
+    }
+    .mic-button.off svg { fill: #ff4444; }
+
+    /* Estado por defecto (sin iniciar) */
+    .mic-button svg { fill: rgba(255,255,255,0.4); }
+
+    /* Línea diagonal de "mute" cuando está apagado */
+    .mic-button .mic-slash {
+      display: none;
+    }
+    .mic-button.off .mic-slash {
+      display: block;
+    }
+
+    /* Texto de reconocimiento de voz (feedback visual) */
+    .voice-transcript {
+      position: absolute;
+      top: 58px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.75);
+      color: rgba(255, 255, 255, 0.7);
+      font-size: clamp(0.5rem, 1.2vw, 0.7rem);
+      font-weight: 700;
+      padding: 3px 12px;
+      border-radius: 8px;
+      z-index: 25;
+      white-space: nowrap;
+      max-width: 50%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+      letter-spacing: 0.03em;
+    }
+
+    .voice-transcript.visible {
+      opacity: 1;
+    }
+
+    /* ===================================================================
+       OVERLAY DE SELECCIÓN DE JUGADORES
+       =================================================================== */
+
+    .player-select-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(10, 15, 25, 0.95);
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      backdrop-filter: blur(10px);
+    }
+
+    .player-select-overlay.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .player-select-title {
+      font-size: clamp(1.5rem, 4vw, 2.5rem);
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 5px;
+    }
+
+    .player-select-subtitle {
+      font-size: clamp(0.8rem, 2vw, 1rem);
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 20px;
+    }
+
+    .player-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+      max-width: 800px;
+      width: 90%;
+    }
+
+    .player-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      color: #fff;
+      padding: 15px 10px;
+      font-size: clamp(0.9rem, 2.2vw, 1.2rem);
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .player-btn[data-team="0"] {
+      background: rgba(46, 255, 106, 0.2);
+      border-color: #2eff6a;
+      color: #2eff6a;
+    }
+
+    .player-btn[data-team="1"] {
+      background: rgba(106, 175, 255, 0.2);
+      border-color: #6aafff;
+      color: #6aafff;
+    }
+
+    .team-assignments-preview {
+      display: flex;
+      gap: 30px;
+      margin-bottom: 25px;
+      width: 90%;
+      max-width: 800px;
+      justify-content: center;
+    }
+
+    .team-preview {
+      flex: 1;
+      text-align: center;
+      padding: 10px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .team-preview h3 { margin: 0 0 5px 0; font-size: 1rem; color: rgba(255,255,255,0.5); }
+    .team-preview p { margin: 0; font-weight: 700; font-size: 1.1rem; min-height: 1.5em; }
+    .team-preview.team-a p { color: #2eff6a; }
+    .team-preview.team-b p { color: #6aafff; }
+
+    .start-match-btn {
+      background: linear-gradient(135deg, #2eff6a, #1ccf52);
+      color: #000;
+      border: none;
+      padding: 15px 40px;
+      font-size: 1.2rem;
+      font-weight: 900;
+      border-radius: 30px;
+      cursor: pointer;
+      box-shadow: 0 10px 20px rgba(46, 255, 106, 0.3);
+      transition: all 0.2s;
+    }
+    .start-match-btn:disabled {
+      background: #555;
+      color: #888;
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+    .start-match-btn:not(:disabled):hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 25px rgba(46, 255, 106, 0.4);
+    }
+  </style>
+</head>
+<body>
+  <!-- ===================================================================
+       ESTRUCTURA HTML
+       =================================================================== -->
+  <div id="app">
+    <!-- Overlay de selección de jugadores -->
+    <div class="player-select-overlay visible" id="playerSelectOverlay">
+      <div class="player-select-title">Pádel Match</div>
+      <div class="player-select-subtitle">Selecciona 2 jugadores por equipo (Click para cambiar)</div>
+      
+      <div class="player-grid" id="playerGrid">
+        <!-- Generado por JS -->
+      </div>
+
+      <div class="team-assignments-preview">
+        <div class="team-preview team-a">
+          <h3>EQUIPO A</h3>
+          <p id="previewTeamA">-</p>
+        </div>
+        <div class="team-preview team-b">
+          <h3>EQUIPO B</h3>
+          <p id="previewTeamB">-</p>
+        </div>
+      </div>
+
+      <button class="start-match-btn" id="btnStartMatch" disabled>Empezar Partido</button>
+    </div>
+
+    <!-- Separador central -->
+    <div class="divider"></div>
+
+    <!-- Indicador de Tie-break -->
+    <div id="tiebreakBadge" class="tiebreak-badge">TIE-BREAK</div>
+
+    <!-- Panel Equipo A (izquierda) -->
+    <div class="team-panel team-a" id="panelA" data-team="0">
+      <div class="score-header">
+        <div class="team-name" id="nameA">Equipo A</div>
+        <div class="sets-display" id="setsA"></div>
+        <div class="games-label">SETS · JUEGOS</div>
+      </div>
+      <div class="point-display">
+        <div class="serve-indicator" id="serveA">🎾</div>
+        <div class="current-point" id="pointA">0</div>
+      </div>
+    </div>
+
+    <!-- Panel Equipo B (derecha) -->
+    <div class="team-panel team-b" id="panelB" data-team="1">
+      <div class="score-header">
+        <div class="team-name" id="nameB">Equipo B</div>
+        <div class="sets-display" id="setsB"></div>
+        <div class="games-label">SETS · JUEGOS</div>
+      </div>
+      <div class="point-display">
+        <div class="serve-indicator" id="serveB">🎾</div>
+        <div class="current-point" id="pointB">0</div>
+      </div>
+    </div>
+
+    <!-- Barra inferior informativa -->
+    <div class="bottom-bar">
+      <span><span class="status-dot" id="wakeDot"></span>PANTALLA</span>
+      <span><span class="status-dot" id="voiceDot"></span>VOZ</span>
+      <span>DOBLE TOQUE: DESHACER · MANTENER: REINICIAR</span>
+    </div>
+
+    <!-- Modal de confirmación de reinicio -->
+    <div class="modal-overlay" id="resetModal">
+      <div class="modal-box">
+        <h2>⚠️ Reiniciar Partido</h2>
+        <p>¿Seguro que quieres reiniciar el marcador?<br>Se perderá todo el progreso.</p>
+        <div class="modal-buttons">
+          <button class="modal-btn confirm" id="btnConfirmReset">Sí, reiniciar</button>
+          <button class="modal-btn cancel" id="btnCancelReset">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Overlay de victoria -->
+    <div class="victory-overlay" id="victoryOverlay">
+      <div class="victory-box">
+        <h1 id="victoryText">🏆 ¡Victoria!</h1>
+        <p id="victorySubtext">Equipo A gana el partido</p>
+        <div class="restart-hint">Mantén pulsado para nuevo partido</div>
+      </div>
+    </div>
+
+    <!-- Overlay de selección de saque -->
+    <div class="serve-select-overlay" id="serveSelectOverlay">
+      <div class="serve-select-title">🎾 ¿Quién saca primero?</div>
+      <div class="serve-select-subtitle">Toca el equipo que inicia sacando</div>
+      <div class="serve-select-panels">
+        <div class="serve-select-btn team-a-btn" id="btnServeA">
+          <div class="serve-emoji">🎾</div>
+          <div class="serve-team-name">EQUIPO A</div>
+        </div>
+        <div class="serve-select-btn team-b-btn" id="btnServeB">
+          <div class="serve-emoji">🎾</div>
+          <div class="serve-team-name">EQUIPO B</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Botón de micrófono (reconocimiento de voz) -->
+    <div class="mic-button off" id="micButton" title="Activar/Desactivar reconocimiento de voz">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+        <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+        <!-- Línea diagonal de mute (visible solo en estado off) -->
+        <line class="mic-slash" x1="3" y1="3" x2="21" y2="21" stroke="#ff4444" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="voice-transcript" id="voiceTranscript"></div>
+
+    <!-- Toast de feedback -->
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <script>
+    /* =====================================================================
+     *  ██████  SECCIÓN 1: LÓGICA DE PUNTUACIÓN PURA (MÁQUINA DE ESTADOS)
+     *  =====================================================================
+     *
+     *  Clase PadelMatch: Contiene TODA la lógica del partido.
+     *  No tiene dependencias de UI ni del DOM.
+     *  Gestiona: puntos, juegos, sets, tie-break, undo e historial.
+     *
+     * ===================================================================== */
+
+    class PadelMatch {
+      constructor() {
+        this.reset();
+      }
+
+      /**
+       * Reinicia el partido por completo.
+       */
+      reset() {
+        // Puntos del juego actual: [equipoA, equipoB]
+        this.points = [0, 0];
+
+        // Juegos de cada set: array de 3 sets, cada uno [juegosA, juegosB]
+        this.games = [[0, 0], [0, 0], [0, 0]];
+
+        // Sets ganados por cada equipo
+        this.sets = [0, 0];
+
+        // Índice del set actual (0, 1, 2)
+        this.currentSet = 0;
+
+        // ¿Estamos en tie-break?
+        this.isTiebreak = false;
+
+        // ¿Partido finalizado?
+        this.matchOver = false;
+
+        // Ganador del partido (0 o 1), null si no ha terminado
+        this.matchWinner = null;
+
+        // Quién sirve (0 = Equipo A, 1 = Equipo B)
+        this.serving = 0;
+
+        // Contador total de puntos jugados (para servicio en tiebreak)
+        this.tiebreakPointCount = 0;
+
+        // Historial de snapshots para undo
+        this.history = [];
+      }
+
+      /**
+       * Crea un snapshot del estado actual para poder hacer undo.
+       */
+      _snapshot() {
+        return {
+          points: [...this.points],
+          games: this.games.map(s => [...s]),
+          sets: [...this.sets],
+          currentSet: this.currentSet,
+          isTiebreak: this.isTiebreak,
+          matchOver: this.matchOver,
+          matchWinner: this.matchWinner,
+          serving: this.serving,
+          tiebreakPointCount: this.tiebreakPointCount,
+        };
+      }
+
+      /**
+       * Restaura un snapshot previo.
+       */
+      _restore(snap) {
+        this.points = snap.points;
+        this.games = snap.games;
+        this.sets = snap.sets;
+        this.currentSet = snap.currentSet;
+        this.isTiebreak = snap.isTiebreak;
+        this.matchOver = snap.matchOver;
+        this.matchWinner = snap.matchWinner;
+        this.serving = snap.serving;
+        this.tiebreakPointCount = snap.tiebreakPointCount;
+      }
+
+      /**
+       * Devuelve la representación textual de los puntos del juego actual.
+       * Para juego normal: 0, 15, 30, 40, AD
+       * Para tie-break: números tal cual
+       */
+      getPointDisplay(team) {
+        if (this.isTiebreak) {
+          return String(this.points[team]);
+        }
+
+        const map = ['0', '15', '30', '40'];
+        const p = this.points;
+
+        // Deuce / ventaja
+        if (p[0] >= 3 && p[1] >= 3) {
+          if (p[0] === p[1]) return '40';  // Deuce (se muestra 40 en ambos)
+          if (p[team] > p[1 - team]) return 'AD';
+          return '40';  // El que no tiene ventaja muestra 40
+        }
+
+        return map[p[team]] || String(p[team]);
+      }
+
+      /**
+       * Verifica si estamos en deuce (iguales a 40).
+       */
+      isDeuce() {
+        if (this.isTiebreak) return false;
+        return this.points[0] >= 3 && this.points[1] >= 3 && this.points[0] === this.points[1];
+      }
+
+      /**
+       * Verifica si hay ventaja y devuelve el equipo (-1 si no hay).
+       */
+      advantageTeam() {
+        if (this.isTiebreak) return -1;
+        if (this.points[0] >= 3 && this.points[1] >= 3) {
+          if (this.points[0] > this.points[1]) return 0;
+          if (this.points[1] > this.points[0]) return 1;
+        }
+        return -1;
+      }
+
+      /**
+       * Suma un punto al equipo indicado (0 o 1).
+       * Devuelve un objeto con información del evento resultante:
+       *   { type: 'point'|'game'|'set'|'match', winner: 0|1, details: string }
+       */
+      scorePoint(team) {
+        if (this.matchOver) return null;
+
+        // Guardar snapshot antes del cambio
+        this.history.push(this._snapshot());
+
+        let result;
+
+        if (this.isTiebreak) {
+          result = this._scoreTiebreakPoint(team);
+        } else {
+          result = this._scoreNormalPoint(team);
+        }
+
+        return result;
+      }
+
+      /**
+       * Lógica de punto en juego normal.
+       */
+      _scoreNormalPoint(team) {
+        const other = 1 - team;
+
+        // Ambos en 40 o más (zona de deuce)
+        if (this.points[0] >= 3 && this.points[1] >= 3) {
+          if (this.points[team] > this.points[other]) {
+            // Tenía ventaja → gana el juego
+            return this._winGame(team);
+          } else if (this.points[team] === this.points[other]) {
+            // Deuce → pasa a ventaja
+            this.points[team]++;
+            return { type: 'point', winner: team, details: 'advantage' };
+          } else {
+            // El otro tenía ventaja → vuelve a deuce
+            this.points[other]--;
+            return { type: 'point', winner: team, details: 'deuce' };
+          }
+        }
+
+        // Avance normal
+        this.points[team]++;
+
+        // ¿Llegó a ganar el juego? (punto 4 sin que el otro esté en 3+)
+        if (this.points[team] >= 4 && this.points[team] - this.points[other] >= 2) {
+          return this._winGame(team);
+        }
+
+        return { type: 'point', winner: team, details: 'normal' };
+      }
+
+      /**
+       * Lógica de punto en tie-break.
+       */
+      _scoreTiebreakPoint(team) {
+        this.points[team]++;
+        this.tiebreakPointCount++;
+
+        // Cambio de servicio en tiebreak: después del primer punto, luego cada 2
+        if (this.tiebreakPointCount === 1 || (this.tiebreakPointCount > 1 && (this.tiebreakPointCount - 1) % 2 === 0)) {
+          this.serving = 1 - this.serving;
+        }
+
+        // ¿Ganó el tiebreak? (7+ puntos con diferencia de 2)
+        if (this.points[team] >= 7 && this.points[team] - this.points[1 - team] >= 2) {
+          // Gana el tiebreak = gana el juego (7-X) y el set
+          this.games[this.currentSet][team]++;
+          return this._winSet(team);
+        }
+
+        return { type: 'point', winner: team, details: 'tiebreak' };
+      }
+
+      /**
+       * Un equipo gana un juego.
+       */
+      _winGame(team) {
+        this.points = [0, 0];
+        this.games[this.currentSet][team]++;
+
+        // Cambiar servicio
+        this.serving = 1 - this.serving;
+
+        const gA = this.games[this.currentSet][0];
+        const gB = this.games[this.currentSet][1];
+
+        // ¿Ganó el set? (6+ juegos con diferencia de 2, o ganó el juego 7)
+        if (gA >= 6 || gB >= 6) {
+          // Comprobar si hay ganador del set
+          if (Math.abs(gA - gB) >= 2 && (gA >= 6 || gB >= 6)) {
+            return this._winSet(team);
+          }
+
+          // ¿6-6? → Tie-break
+          if (gA === 6 && gB === 6) {
+            this.isTiebreak = true;
+            this.tiebreakPointCount = 0;
+            return { type: 'game', winner: team, details: 'tiebreak_start' };
+          }
+        }
+
+        return { type: 'game', winner: team, details: 'game' };
+      }
+
+      /**
+       * Un equipo gana un set.
+       */
+      _winSet(team) {
+        this.sets[team]++;
+        this.isTiebreak = false;
+        this.points = [0, 0];
+
+        // ¿Ganó el partido? (2 sets)
+        if (this.sets[team] >= 2) {
+          this.matchOver = true;
+          this.matchWinner = team;
+          return { type: 'match', winner: team, details: 'match_won' };
+        }
+
+        // Avanzar al siguiente set
+        this.currentSet++;
+        return { type: 'set', winner: team, details: 'set_won' };
+      }
+
+      /**
+       * Deshace el último punto. Devuelve true si se pudo deshacer.
+       */
+      undo() {
+        if (this.history.length === 0) return false;
+        const snap = this.history.pop();
+        this._restore(snap);
+        return true;
+      }
+
+      /**
+       * Devuelve el estado completo para renderizar.
+       */
+      getState() {
+        return {
+          points: [...this.points],
+          pointDisplay: [this.getPointDisplay(0), this.getPointDisplay(1)],
+          games: this.games.map(s => [...s]),
+          sets: [...this.sets],
+          currentSet: this.currentSet,
+          isTiebreak: this.isTiebreak,
+          matchOver: this.matchOver,
+          matchWinner: this.matchWinner,
+          serving: this.serving,
+          isDeuce: this.isDeuce(),
+          advantageTeam: this.advantageTeam(),
+          canUndo: this.history.length > 0,
+        };
+      }
+    }
+
+
+    /* =====================================================================
+     *  ██████  SECCIÓN 2: GESTOR DE EVENTOS (INPUT MANAGER)
+     *  =====================================================================
+     *
+     *  Detecta y clasifica las entradas del usuario:
+     *    - Toque simple / click: Suma punto
+     *    - Doble toque (<400ms): Deshace último punto
+     *    - Long press (>1000ms): Reinicio con confirmación
+     *
+     *  Escucha tanto eventos táctiles/click como eventos de teclado
+     *  para los botones Bluetooth (VolumeUp/ArrowUp → Equipo A,
+     *  VolumeDown/ArrowDown → Equipo B).
+     *
+     *  ────────────────────────────────────────────────────────────────
+     *  CÓMO PROBAR EN EL NAVEGADOR DE ESCRITORIO:
+     *
+     *  1. Toque simple:  Haz click en la mitad izq/der de la pantalla
+     *  2. Doble toque:   Haz doble click rápido (<400ms) en una mitad
+     *  3. Long press:    Mantén pulsado el ratón >1 segundo en cualquier
+     *                    mitad y suéltalo. Aparecerá el modal de reinicio.
+     *
+     *  4. Teclado:       Pulsa ↑ (ArrowUp) para punto Equipo A
+     *                    Pulsa ↓ (ArrowDown) para punto Equipo B
+     *                    Doble pulsación rápida = undo
+     *                    Mantén pulsada la tecla >1s = reset
+     *  ────────────────────────────────────────────────────────────────
+     * ===================================================================== */
+
+    class InputManager {
+      constructor(callbacks) {
+        // callbacks: { onPoint(team), onUndo(), onResetRequest() }
+        this.callbacks = callbacks;
+
+        // Estado por fuente de entrada (para manejar cada equipo independiente)
+        this.inputState = {
+          0: { lastTapTime: 0, pressTimer: null, singleTapTimer: null, isLongPress: false },
+          1: { lastTapTime: 0, pressTimer: null, singleTapTimer: null, isLongPress: false },
+        };
+
+        // Estado del teclado
+        this.keyState = {
+          0: { lastTapTime: 0, pressTimer: null, singleTapTimer: null, isLongPress: false, isDown: false },
+          1: { lastTapTime: 0, pressTimer: null, singleTapTimer: null, isLongPress: false, isDown: false },
+        };
+
+        this.DOUBLE_TAP_INTERVAL = 400;  // ms
+        this.LONG_PRESS_DURATION = 1000; // ms
+
+        this._bindTouchEvents();
+        this._bindKeyboardEvents();
+      }
+
+      /* ---- Eventos táctiles / click ---- */
+
+      _bindTouchEvents() {
+        const panels = [
+          { el: document.getElementById('panelA'), team: 0 },
+          { el: document.getElementById('panelB'), team: 1 },
+        ];
+
+        panels.forEach(({ el, team }) => {
+          // Inicio de pulsación
+          el.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            this._handlePressStart(team, 'touch');
+          });
+
+          // Fin de pulsación
+          el.addEventListener('pointerup', (e) => {
+            e.preventDefault();
+            this._handlePressEnd(team, 'touch');
+          });
+
+          // Cancelación
+          el.addEventListener('pointerleave', (e) => {
+            this._cancelLongPress(team, 'touch');
+          });
+          el.addEventListener('pointercancel', (e) => {
+            this._cancelLongPress(team, 'touch');
+          });
+        });
+      }
+
+      /* ---- Eventos de teclado (botones Bluetooth) ---- */
+
+      _bindKeyboardEvents() {
+        // Mapeo de teclas a equipos
+        const keyMap = {
+          'ArrowUp': 0,    'VolumeUp': 0,
+          'ArrowDown': 1,  'VolumeDown': 1,
+        };
+
+        document.addEventListener('keydown', (e) => {
+          const team = keyMap[e.key];
+          if (team === undefined) return;
+          e.preventDefault();
+
+          // Evitar repeticiones automáticas del teclado
+          if (this.keyState[team].isDown) return;
+          this.keyState[team].isDown = true;
+
+          this._handlePressStart(team, 'key');
+        });
+
+        document.addEventListener('keyup', (e) => {
+          const team = keyMap[e.key];
+          if (team === undefined) return;
+          e.preventDefault();
+
+          this.keyState[team].isDown = false;
+          this._handlePressEnd(team, 'key');
+        });
+      }
+
+      /* ---- Lógica unificada de gestos ---- */
+
+      _getState(team, source) {
+        return source === 'key' ? this.keyState[team] : this.inputState[team];
+      }
+
+      _handlePressStart(team, source) {
+        const state = this._getState(team, source);
+        state.isLongPress = false;
+
+        // Iniciar timer de long-press
+        state.pressTimer = setTimeout(() => {
+          state.isLongPress = true;
+          this.callbacks.onResetRequest();
+        }, this.LONG_PRESS_DURATION);
+      }
+
+      _handlePressEnd(team, source) {
+        const state = this._getState(team, source);
+
+        // Cancelar timer de long-press
+        clearTimeout(state.pressTimer);
+        state.pressTimer = null;
+
+        // Si fue long press, ya se manejó
+        if (state.isLongPress) {
+          state.isLongPress = false;
+          return;
+        }
+
+        // Detectar doble toque
+        const now = Date.now();
+        const elapsed = now - state.lastTapTime;
+
+        if (elapsed < this.DOUBLE_TAP_INTERVAL && state.lastTapTime !== 0) {
+          // Doble toque → Undo
+          clearTimeout(state.singleTapTimer); // Cancelar el toque simple
+          state.singleTapTimer = null;
+          state.lastTapTime = 0;
+          this.callbacks.onUndo(team);
+        } else {
+          // Toque simple → Punto (se retrasa para verificar que no es un doble toque)
+          state.lastTapTime = now;
+          state.singleTapTimer = setTimeout(() => {
+            state.lastTapTime = 0;
+            this.callbacks.onPoint(team);
+          }, this.DOUBLE_TAP_INTERVAL);
+        }
+      }
+
+      _cancelLongPress(team, source) {
+        const state = this._getState(team, source);
+        clearTimeout(state.pressTimer);
+        state.pressTimer = null;
+      }
+    }
+
+
+    /* =====================================================================
+     *  ██████  SECCIÓN 3: RECONOCIMIENTO DE VOZ (SPEECH-TO-TEXT)
+     *  =====================================================================
+     *
+     *  Clase VoiceRecognitionManager:
+     *  Gestiona la entrada de voz mediante la Web Speech API.
+     *
+     *  ┌─────────────────────────────────────────────────────────────────┐
+     *  │  ⚠️  NOTA IMPORTANTE PARA USO EN MÓVIL:                            │
+     *  │                                                                   │
+     *  │  El reconocimiento de voz (Web Speech API) requiere que la app    │
+     *  │  se sirva a través de HTTPS para que los permisos del micrófono   │
+     *  │  persistan y funcionen correctamente en Chrome Mobile.            │
+     *  │                                                                   │
+     *  │  NO funcionará correctamente si abres el archivo directamente     │
+     *  │  con el protocolo file:///. Debes alojar el archivo en un         │
+     *  │  servidor con HTTPS (por ejemplo: GitHub Pages, Netlify,         │
+     *  │  Vercel, o un servidor local con certificado).                    │
+     *  │                                                                   │
+     *  │  Opciones rápidas para desarrollo local:                          │
+     *  │    • python -m http.server  (HTTP, funciona en localhost)         │
+     *  │    • npx serve              (HTTP, funciona en localhost)         │
+     *  │    • Chrome permite localhost sin HTTPS para la Web Speech API.   │
+     *  └─────────────────────────────────────────────────────────────────┘
+     *
+     *  COMANDOS MAPEADOS:
+     *    "Punto Amancio"    → Suma punto al Equipo A
+     *    "Punto Baltasar"   → Suma punto al Equipo B
+     *    "Restar Amancio"   → Undo para Equipo A
+     *    "Restar Baltasar"  → Undo para Equipo B
+     *    "Reiniciar partido" → Reinicio total
+     *
+     *  ESTRATEGIA DE PERSISTENCIA (3 pilares):
+     *
+     *  1️⃣  BLINDAJE DEL onend (Bucle Ininterrumpido):
+     *      La Web Speech API se detiene automáticamente por silencio,
+     *      timeout, o tras procesar una frase. El evento `onend` se
+     *      dispara SIEMPRE que el motor se detiene, sea cual sea la causa.
+     *
+     *      Si this.isMicActive === true, el handler de onend ejecuta
+     *      recognition.start() inmediatamente (con un delay de 50ms
+     *      para evitar colisiones internas del motor). Esto crea un
+     *      bucle de escucha perpetuo sin intervención del usuario.
+     *
+     *      El flag this._restartPending evita múltiples restarts
+     *      simultáneos que podrían causar excepciones.
+     *
+     *  2️⃣  BLINDAJE DEL onerror:
+     *      La mayoría de errores (no-speech, network, audio-capture,
+     *      aborted) son transitorios — el motor se recupera solo si
+     *      dejamos que onend haga su trabajo. El único error FATAL es
+     *      `not-allowed` (permiso denegado por el usuario o el SO),
+     *      que es el único caso donde apagamos isMicActive.
+     *
+     *  3️⃣  CONTROL DE COLISIONES TTS ↔ STT (Bandera, no stop/start):
+     *      El enfoque anterior usaba recognition.stop() antes del TTS
+     *      y recognition.start() después. Esto causaba problemas porque
+     *      el ciclo stop→onend→start se solapaba con el resume manual.
+     *
+     *      NUEVO ENFOQUE: El recognition NUNCA se detiene por el TTS.
+     *      En su lugar, usamos la bandera this.isSpeaking:
+     *        • Antes del TTS → isSpeaking = true
+     *        • En onresult → si isSpeaking === true, se ignora el
+     *          resultado silenciosamente (descarta comandos fantasma)
+     *        • Cuando el TTS termina → isSpeaking = false
+     *
+     *      Ventaja: El recognition sigue corriendo sin interrupción,
+     *      eliminando el problema de restarts fallidos.
+     *
+     * ===================================================================== */
+
+    class VoiceRecognitionManager {
+      constructor(callbacks) {
+        /**
+         * callbacks esperados:
+         *   onPointA()       - Punto para Equipo A
+         *   onPointB()       - Punto para Equipo B
+         *   onUndoGlobal()   - Deshacer Global
+         *   onReset()        - Reiniciar partido
+         *   onStateChange(state)  - Cambio de estado del mic ('listening'|'paused'|'off')
+         *   onTranscript(text)    - Texto reconocido (para feedback visual)
+         */
+        this.callbacks = callbacks;
+
+        // Equipos
+        this.teamAPlayers = [];
+        this.teamBPlayers = [];
+
+        // Diccionario de normalización fonética para mejorar la tolerancia.
+        // Se ignoran tildes y mayúsculas previamente (normalizado a minúsculas y sin acentos).
+        // Añade aquí más variaciones si el micrófono falla en la pista.
+        this.phoneticMap = {
+          'kike': 'kike', 'quique': 'kike', 'kiko': 'kike',
+          'chiwi': 'chiwi', 'kiwi': 'chiwi', 'cheewy': 'chiwi', 'chui': 'chiwi', 'chibi': 'chiwi', 'shibi': 'chiwi',
+          'enoc': 'enoc', 'enok': 'enoc', 'eno': 'enoc',
+          'agustin': 'agustin', 'agus': 'agustin',
+          'victor': 'victor',
+          'pablo': 'pablo',
+          'emiliano': 'emiliano', 'emi': 'emiliano',
+          'adrian': 'adrian', 'adri': 'adrian'
+        };
+
+        // ── PILAR 1: Flag maestro de activación ──
+        // Controla si el bucle de escucha debe mantenerse vivo.
+        // Se activa con toggle/start (gesto del usuario) y se
+        // desactiva con stop() o un error fatal (not-allowed).
+        this.isMicActive = false;
+
+        // ── PILAR 3: Flag de colisión TTS ──
+        // Cuando el TTS está hablando, isSpeaking = true.
+        // Los resultados del recognition se ignoran sin detener el motor.
+        this.isSpeaking = false;
+
+        // ¿Está disponible la API?
+        this.isSupported = false;
+
+        // Instancia del reconocedor
+        this.recognition = null;
+
+        // ── Anti-bounce: evita múltiples restarts simultáneos ──
+        this._restartPending = false;
+
+        this._init();
+      }
+
+      _init() {
+        // Comprobar disponibilidad de la API
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          console.warn('[VoiceRecognition] API no disponible en este navegador.');
+          this.isSupported = false;
+          this.callbacks.onStateChange('off');
+          return;
+        }
+
+        this.isSupported = true;
+        this.recognition = new SpeechRecognition();
+
+        // Configuración del reconocedor
+        this.recognition.lang = 'es-ES';
+        this.recognition.continuous = true;      // Escucha continua
+        this.recognition.interimResults = false;  // Solo resultados finales
+        this.recognition.maxAlternatives = 3;     // Alternativas para mayor precisión
+
+        // ====================================================================
+        // EVENTO: recognition.onresult
+        // Se dispara cuando el motor detecta una frase.
+        // Si isSpeaking === true, el resultado se descarta silenciosamente
+        // para evitar que el mic capte la salida del TTS (comandos fantasma).
+        // ====================================================================
+        this.recognition.onresult = (event) => {
+          // COLISIÓN TTS: el árbitro está hablando → ignorar todo
+          if (this.isSpeaking) return;
+
+          // Procesar solo los nuevos resultados (no reprocesar antiguos)
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            if (!event.results[i].isFinal) continue;
+
+            // Comprobar todas las alternativas que nos da la API
+            for (let alt = 0; alt < event.results[i].length; alt++) {
+              const transcript = event.results[i][alt].transcript.trim().toLowerCase();
+              this.callbacks.onTranscript(transcript);
+
+              // Intentar emparejar con un comando conocido
+              if (this._matchCommand(transcript)) return;
+            }
+          }
+        };
+
+        // ====================================================================
+        // EVENTO: recognition.onend  (🛡️ BLINDAJE PRINCIPAL)
+        //
+        // Este es el corazón de la persistencia. Se dispara SIEMPRE que
+        // el motor se detiene, sin importar la razón:
+        //   • Silencio prolongado (no-speech)
+        //   • Fin de una frase detectada
+        //   • Error de red transitorio
+        //   • Llamada explícita a recognition.stop()
+        //
+        // Si isMicActive === true, reiniciamos INCONDICIONALMENTE.
+        // El delay de 50ms evita la excepción "recognition already started".
+        // El flag _restartPending evita múltiples llamadas simultáneas.
+        // ====================================================================
+        this.recognition.onend = () => {
+          if (!this.isMicActive) return;
+          if (this._restartPending) return;
+
+          this._restartPending = true;
+
+          setTimeout(() => {
+            this._restartPending = false;
+            if (!this.isMicActive) return;
+
+            try {
+              this.recognition.start();
+              console.log('[VoiceRecognition] Reinicio automático tras onend.');
+            } catch (e) {
+              // Si start() falla (ej. "already started"), reintentamos
+              console.warn('[VoiceRecognition] Retry tras fallo de start:', e.message);
+              setTimeout(() => {
+                if (!this.isMicActive) return;
+                try { this.recognition.start(); } catch (e2) { /* agotado */ }
+              }, 300);
+            }
+          }, 50);
+        };
+
+        // ====================================================================
+        // EVENTO: recognition.onerror  (🛡️ BLINDAJE DE ERRORES)
+        //
+        // Tipos de error y cómo los manejamos:
+        //
+        //   • 'no-speech'          → Silencio. IGNORAR. onend reiniciará.
+        //   • 'audio-capture'      → Sin micro. IGNORAR. onend reiniciará.
+        //   • 'network'            → Red caída. IGNORAR. onend reiniciará.
+        //   • 'aborted'            → Interrumpido. IGNORAR. onend reiniciará.
+        //   • 'not-allowed'        → Permiso DENEGADO. Único error FATAL.
+        //   • 'service-not-allowed'→ Servicio bloqueado. Error FATAL.
+        //
+        // Solo los errores fatales desactivan isMicActive. El resto
+        // fluye naturalmente hacia onend que se encarga del restart.
+        // ====================================================================
+        this.recognition.onerror = (event) => {
+          console.warn('[VoiceRecognition] Error:', event.error);
+
+          if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+            // ── ERROR FATAL: permiso denegado ──
+            // El usuario o el SO bloquearon el micrófono.
+            // Apagamos el bucle y actualizamos la UI.
+            this.isMicActive = false;
+            this.isSpeaking = false;
+            this.callbacks.onStateChange('off');
+          }
+          // Todos los demás errores (no-speech, network, aborted, audio-capture)
+          // se dejan pasar. El evento onend se disparará automáticamente
+          // después y reiniciará el motor si isMicActive === true.
+        };
+
+        this.callbacks.onStateChange('off');
+      }
+
+      setPlayers(teamA, teamB) {
+        this.teamAPlayers = teamA.map(n => this._normalizeText(n));
+        this.teamBPlayers = teamB.map(n => this._normalizeText(n));
+      }
+
+      _normalizeText(text) {
+        // Normalizamos quitando acentos y signos de puntuación (como el punto final que añade el navegador)
+        return text.normalize('NFD')
+                   .replace(/[\u0300-\u036f]/g, '')
+                   .replace(/[.,;:?!¡¿]/g, '')
+                   .toLowerCase();
+      }
+
+      /**
+       * Compara el transcript con los comandos conocidos.
+       * Usa búsqueda difusa: busca las palabras clave en cualquier parte
+       * del texto reconocido para tolerar errores del motor de voz.
+       */
+      _matchCommand(text) {
+        // Normalizar: quitar acentos y caracteres especiales
+        const normalized = this._normalizeText(text);
+
+        // "Restar" -> Undo global (saca el último estado del historial)
+        if (normalized.includes('restar')) {
+          this.callbacks.onUndoGlobal();
+          return true;
+        }
+
+        // "Reiniciar partido"
+        if (normalized.includes('reiniciar') && normalized.includes('partido')) {
+          this.callbacks.onReset();
+          return true;
+        }
+
+        // "Marcó [Nombre]" -> Dinámico
+        if (normalized.includes('marco')) {
+          const words = normalized.split(' ');
+          for (const word of words) {
+            // Aplicar normalización fonética si existe en el diccionario
+            const mappedName = this.phoneticMap[word] || word;
+            
+            if (this.teamAPlayers.includes(mappedName)) {
+              this.callbacks.onPointA();
+              return true;
+            }
+            if (this.teamBPlayers.includes(mappedName)) {
+              this.callbacks.onPointB();
+              return true;
+            }
+          }
+        }
+
+        return false;
+      }
+
+      // ===================================================================
+      // MÉTODOS PÚBLICOS
+      // ===================================================================
+
+      /**
+       * Toggle manual: activa o desactiva el mic.
+       * IMPORTANTE: La primera llamada a start() DEBE originarse de un
+       * gesto del usuario (click/touch) para cumplir con las políticas
+       * de Chrome Mobile sobre permisos de audio.
+       */
+      toggle() {
+        if (!this.isSupported) {
+          this.callbacks.onStateChange('off');
+          return;
+        }
+        if (this.isMicActive) {
+          this.stop();
+        } else {
+          this.start();
+        }
+      }
+
+      /**
+       * Inicia la escucha de voz.
+       * Activa el flag isMicActive que mantiene vivo el bucle onend.
+       */
+      start() {
+        if (!this.isSupported) return;
+        this.isMicActive = true;
+        this.isSpeaking = false;
+        this._restartPending = false;
+        try {
+          this.recognition.start();
+        } catch (e) {
+          // Puede que ya esté corriendo (ej. restart rápido)
+          console.warn('[VoiceRecognition] start() ya activo:', e.message);
+        }
+        this.callbacks.onStateChange('listening');
+      }
+
+      /**
+       * Detiene la escucha de voz definitivamente.
+       * Desactiva isMicActive para que onend NO reinicie.
+       */
+      stop() {
+        if (!this.isSupported) return;
+        this.isMicActive = false;
+        this.isSpeaking = false;
+        this._restartPending = false;
+        try {
+          this.recognition.stop();
+        } catch (e) { /* silenciar */ }
+        this.callbacks.onStateChange('off');
+      }
+
+      /**
+       * COLISIÓN TTS → Activa la bandera de silencio.
+       * NO detiene el recognition. Solo ignora los resultados.
+       * El icono cambia a amarillo para indicar "pausado por TTS".
+       */
+      muteForTTS() {
+        if (!this.isMicActive) return;
+        this.isSpeaking = true;
+        this.callbacks.onStateChange('paused');
+      }
+
+      /**
+       * COLISIÓN TTS → Desactiva la bandera de silencio.
+       * El recognition sigue corriendo, simplemente vuelve a procesar
+       * resultados. El icono vuelve a verde.
+       */
+      unmuteAfterTTS() {
+        if (!this.isMicActive) return;
+        this.isSpeaking = false;
+        // Pequeño delay para que el eco del TTS se disipe
+        // antes de volver a mostrar el estado "listening".
+        setTimeout(() => {
+          if (this.isMicActive && !this.isSpeaking) {
+            this.callbacks.onStateChange('listening');
+          }
+        }, 200);
+      }
+    }
+
+
+    /* =====================================================================
+     *  ██████  SECCIÓN 4: CAPA DE RENDERIZADO, VOZ Y PWA
+     *  =====================================================================
+     *
+     *  - Renderiza el estado del partido en el DOM
+     *  - Gestiona el árbitro virtual (Text-to-Speech)
+     *  - Coordina TTS ↔ STT para evitar colisiones
+     *  - Controla Wake Lock API
+     *  - Coordina la app principal
+     *
+     * ===================================================================== */
+
+    class PadelApp {
+      constructor() {
+        this.match = new PadelMatch();
+        this.wakeLock = null;
+        this.voiceEnabled = true;
+        this.teamNames = ['Equipo A', 'Equipo B'];
+        
+        // Jugadores
+        this.playersList = ['Enoc', 'Agustín', 'Kike', 'Víctor', 'Pablo', 'Emiliano', 'Adrián', 'Chiwi'];
+        this.selectedPlayers = {}; // { 'Enoc': 0, 'Pablo': 1, ... } (0 for A, 1 for B)
+        this.teamA_arr = [];
+        this.teamB_arr = [];
+
+        // Flag: ¿se ha elegido quién saca? Bloquea la app hasta que se elija.
+        this.serveChosen = false;
+
+        // Referencias DOM
+        this.dom = {
+          pointA: document.getElementById('pointA'),
+          pointB: document.getElementById('pointB'),
+          setsA: document.getElementById('setsA'),
+          setsB: document.getElementById('setsB'),
+          serveA: document.getElementById('serveA'),
+          serveB: document.getElementById('serveB'),
+          nameA: document.getElementById('nameA'),
+          nameB: document.getElementById('nameB'),
+          tiebreakBadge: document.getElementById('tiebreakBadge'),
+          resetModal: document.getElementById('resetModal'),
+          victoryOverlay: document.getElementById('victoryOverlay'),
+          victoryText: document.getElementById('victoryText'),
+          victorySubtext: document.getElementById('victorySubtext'),
+          toast: document.getElementById('toast'),
+          wakeDot: document.getElementById('wakeDot'),
+          voiceDot: document.getElementById('voiceDot'),
+          serveSelectOverlay: document.getElementById('serveSelectOverlay'),
+          micButton: document.getElementById('micButton'),
+          voiceTranscript: document.getElementById('voiceTranscript'),
+          playerSelectOverlay: document.getElementById('playerSelectOverlay'),
+          playerGrid: document.getElementById('playerGrid'),
+          previewTeamA: document.getElementById('previewTeamA'),
+          previewTeamB: document.getElementById('previewTeamB'),
+          btnStartMatch: document.getElementById('btnStartMatch'),
+        };
+
+        // Inicializar UI de selección de jugadores
+        this._initPlayerSelect();
+
+        // Inicializar input manager
+        this.input = new InputManager({
+          onPoint: (team) => this.handlePoint(team),
+          onUndo: (team) => this.handleUndo(),
+          onResetRequest: () => this.showResetModal(),
+        });
+
+        // Botones del modal
+        document.getElementById('btnConfirmReset').addEventListener('click', () => this.confirmReset());
+        document.getElementById('btnCancelReset').addEventListener('click', () => this.hideResetModal());
+
+        // Botones de selección de saque
+        document.getElementById('btnServeA').addEventListener('click', () => this.selectServe(0));
+        document.getElementById('btnServeB').addEventListener('click', () => this.selectServe(1));
+
+        // Inicializar reconocimiento de voz (Speech-to-Text)
+        this._initVoiceRecognition();
+
+        // Botón de micrófono: toggle de escucha por voz
+        this.dom.micButton.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.voiceRecognition.toggle();
+        });
+
+        // Inicializar
+        this._initWakeLock();
+        this._initVoice();
+        this.render();
+      }
+
+      /* ---- Selección de Jugadores ---- */
+
+      _initPlayerSelect() {
+        this.playersList.forEach(player => {
+          const btn = document.createElement('button');
+          btn.className = 'player-btn';
+          btn.textContent = player;
+          btn.dataset.name = player;
+          btn.addEventListener('click', () => this._togglePlayerSelection(player, btn));
+          this.dom.playerGrid.appendChild(btn);
+        });
+
+        this.dom.btnStartMatch.addEventListener('click', () => this.startMatch());
+      }
+
+      _togglePlayerSelection(player, btnElement) {
+        const currentTeam = this.selectedPlayers[player];
+        
+        if (currentTeam === undefined) {
+          if (this.teamA_arr.length < 2) {
+            this.selectedPlayers[player] = 0;
+          } else if (this.teamB_arr.length < 2) {
+            this.selectedPlayers[player] = 1;
+          }
+        } else if (currentTeam === 0) {
+          if (this.teamB_arr.length < 2) {
+            this.selectedPlayers[player] = 1;
+          } else {
+            delete this.selectedPlayers[player];
+          }
+        } else {
+          delete this.selectedPlayers[player];
+        }
+
+        this._updatePlayerSelectUI();
+      }
+
+      _updatePlayerSelectUI() {
+        this.teamA_arr = Object.keys(this.selectedPlayers).filter(p => this.selectedPlayers[p] === 0);
+        this.teamB_arr = Object.keys(this.selectedPlayers).filter(p => this.selectedPlayers[p] === 1);
+
+        const buttons = this.dom.playerGrid.querySelectorAll('.player-btn');
+        buttons.forEach(btn => {
+          const p = btn.dataset.name;
+          if (this.selectedPlayers[p] === 0) btn.dataset.team = "0";
+          else if (this.selectedPlayers[p] === 1) btn.dataset.team = "1";
+          else delete btn.dataset.team;
+        });
+
+        this.dom.previewTeamA.innerHTML = this.teamA_arr.length > 0 ? this.teamA_arr.join('<br>') : '-';
+        this.dom.previewTeamB.innerHTML = this.teamB_arr.length > 0 ? this.teamB_arr.join('<br>') : '-';
+
+        this.dom.btnStartMatch.disabled = (this.teamA_arr.length !== 2 || this.teamB_arr.length !== 2);
+      }
+
+      showPlayerSelect() {
+        // Limpiar selecciones
+        this.selectedPlayers = {};
+        this._updatePlayerSelectUI();
+        
+        // Detener reconocimiento de voz si estaba activo (se reiniciará al pulsar Empezar)
+        if (this.voiceRecognition) {
+          this.voiceRecognition.stop();
+        }
+
+        // Mostrar overlay
+        this.dom.playerSelectOverlay.classList.add('visible');
+      }
+
+      startMatch() {
+        // 1. Ocultar overlay
+        this.dom.playerSelectOverlay.classList.remove('visible');
+
+        // Solicitar pantalla completa por software
+        if (document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen().catch(e => console.log('Error Fullscreen:', e));
+        }
+        
+        // 2. Configurar nombres para la UI y TTS
+        const nameA = this.teamA_arr.join(' y ');
+        const nameB = this.teamB_arr.join(' y ');
+        this.teamNames = [nameA, nameB];
+
+        // 3. UI Marker
+        this.dom.nameA.innerHTML = this.teamA_arr.join(' - ');
+        this.dom.nameB.innerHTML = this.teamB_arr.join(' - ');
+        
+        // Actualizar nombres en los botones de saque
+        document.querySelector('#btnServeA .serve-team-name').textContent = nameA;
+        document.querySelector('#btnServeB .serve-team-name').textContent = nameB;
+
+        // 4. Configurar Voice Recognition e Iniciarlo
+        if (this.voiceRecognition) {
+           this.voiceRecognition.setPlayers(this.teamA_arr, this.teamB_arr);
+           // Interacción del usuario arranca el micrófono:
+           this.voiceRecognition.start();
+        }
+
+        // 5. Mostrar selección de saque
+        this.showServeSelect();
+      }
+
+      /* ---- Selección de saque ---- */
+
+      /**
+       * El usuario elige qué equipo saca primero.
+       */
+      selectServe(team) {
+        this.match.serving = team;
+        this.serveChosen = true;
+        this.dom.serveSelectOverlay.classList.remove('visible');
+        this.render();
+        this._announce(`Saca ${this.teamNames[team]}`);
+      }
+
+      /**
+       * Muestra el overlay de selección de saque.
+       */
+      showServeSelect() {
+        this.serveChosen = false;
+        this.dom.serveSelectOverlay.classList.add('visible');
+      }
+
+      /* ---- Reconocimiento de Voz (Speech-to-Text) ---- */
+
+      /**
+       * Inicializa el VoiceRecognitionManager con los callbacks
+       * que conectan los comandos de voz a las acciones del marcador.
+       */
+      _initVoiceRecognition() {
+        this.voiceRecognition = new VoiceRecognitionManager({
+          onPointA: () => {
+            this._showToast(`🎙️ Marcó ${this.teamNames[0]}`);
+            this.handlePoint(0);
+          },
+          onPointB: () => {
+            this._showToast(`🎙️ Marcó ${this.teamNames[1]}`);
+            this.handlePoint(1);
+          },
+          onUndoGlobal: () => {
+            this._showToast('🎙️ Restar (Undo)');
+            this.handleUndo();
+          },
+          onReset: () => {
+            this._showToast('🎙️ Reiniciar Partido');
+            this.showResetModal();
+          },
+          onStateChange: (state) => {
+            // Actualizar apariencia del botón del micrófono
+            const btn = this.dom.micButton;
+            btn.classList.remove('listening', 'paused', 'off');
+            btn.classList.add(state);
+          },
+          onTranscript: (text) => {
+            // Mostrar brevemente el texto reconocido como feedback
+            const el = this.dom.voiceTranscript;
+            el.textContent = `"${text}"`;
+            el.classList.add('visible');
+            clearTimeout(this._transcriptTimer);
+            this._transcriptTimer = setTimeout(() => {
+              el.classList.remove('visible');
+            }, 2000);
+          },
+        });
+      }
+
+      /* ---- Wake Lock ---- */
+
+      async _initWakeLock() {
+        try {
+          if ('wakeLock' in navigator) {
+            this.wakeLock = await navigator.wakeLock.request('screen');
+            this.dom.wakeDot.classList.add('on');
+            this.dom.wakeDot.classList.remove('off');
+
+            // Re-adquirir wake lock cuando la página vuelve a ser visible
+            document.addEventListener('visibilitychange', async () => {
+              if (document.visibilityState === 'visible') {
+                try {
+                  this.wakeLock = await navigator.wakeLock.request('screen');
+                  this.dom.wakeDot.classList.add('on');
+                  this.dom.wakeDot.classList.remove('off');
+                } catch (e) { /* silenciar */ }
+              }
+            });
+          } else {
+            this.dom.wakeDot.classList.add('off');
+            this.dom.wakeDot.classList.remove('on');
+          }
+        } catch (e) {
+          this.dom.wakeDot.classList.add('off');
+          this.dom.wakeDot.classList.remove('on');
+        }
+      }
+
+      /* ---- Text-to-Speech (Árbitro Virtual) ---- */
+
+      _initVoice() {
+        if ('speechSynthesis' in window) {
+          this.dom.voiceDot.classList.add('on');
+          this.dom.voiceDot.classList.remove('off');
+          // Cargar voces (en algunos navegadores es asíncrono)
+          speechSynthesis.getVoices();
+          speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+        } else {
+          this.voiceEnabled = false;
+          this.dom.voiceDot.classList.add('off');
+          this.dom.voiceDot.classList.remove('on');
+        }
+      }
+
+      /**
+       * Cancela cualquier audio en curso.
+       * También limpia la bandera isSpeaking del VoiceRecognition
+       * para que el mic vuelva a procesar resultados inmediatamente.
+       */
+      _silenceVoice() {
+        if ('speechSynthesis' in window) {
+          speechSynthesis.cancel();
+        }
+        // Limpiar la bandera de colisión TTS→STT
+        if (this.voiceRecognition && this.voiceRecognition.isMicActive) {
+          this.voiceRecognition.unmuteAfterTTS();
+        }
+      }
+
+      /**
+       * Genera el texto que cantaría un árbitro de pádel.
+       */
+      _buildAnnouncement(result, state) {
+        if (!result) return null;
+
+        // Victoria de partido
+        if (result.type === 'match') {
+          return `¡Juego, set y partido para ${this.teamNames[result.winner]}!`;
+        }
+
+        // Victoria de set
+        if (result.type === 'set') {
+          const setIdx = this.match.currentSet - 1;
+          const gA = state.games[setIdx][0];
+          const gB = state.games[setIdx][1];
+          return `Juego y set para ${this.teamNames[result.winner]}. ${gA} a ${gB}.`;
+        }
+
+        // Victoria de juego
+        if (result.type === 'game') {
+          if (result.details === 'tiebreak_start') {
+            return `Juego ${this.teamNames[result.winner]}. Tie-break.`;
+          }
+          const gA = state.games[state.currentSet][0];
+          const gB = state.games[state.currentSet][1];
+          return `Juego ${this.teamNames[result.winner]}. ${gA} a ${gB}.`;
+        }
+
+        // Punto normal o tiebreak
+        if (result.type === 'point') {
+          if (state.isTiebreak) {
+            // Tiebreak: cantar números
+            const pA = state.points[0];
+            const pB = state.points[1];
+            if (pA === pB) return `${pA} iguales`;
+            // Cantar primero el que sirve
+            if (state.serving === 0) return `${pA} a ${pB}`;
+            return `${pB} a ${pA}`;
+          }
+
+          // Juego normal
+          const dispA = state.pointDisplay[0];
+          const dispB = state.pointDisplay[1];
+
+          // Deuce
+          if (state.isDeuce) {
+            if (state.points[0] === 3) return '40 iguales';
+            return 'Iguales';
+          }
+
+          // Ventaja
+          if (state.advantageTeam >= 0) {
+            return `Ventaja ${this.teamNames[state.advantageTeam]}`;
+          }
+
+          // Puntos iguales
+          if (dispA === dispB) {
+            return `${dispA} iguales`;
+          }
+
+          // Cantar el marcador: primero el que sirve
+          if (state.serving === 0) return `${dispA} a ${dispB}`;
+          return `${dispB} a ${dispA}`;
+        }
+
+        return null;
+      }
+
+      /**
+       * Canta el marcador usando Text-to-Speech.
+       */
+      _announce(text) {
+        if (!this.voiceEnabled || !text) return;
+        if (!('speechSynthesis' in window)) return;
+
+        speechSynthesis.cancel();
+
+        // ── CONTROL DE COLISIONES TTS → STT (BANDERA, NO STOP/START) ──
+        // Activamos la bandera isSpeaking ANTES de que el TTS hable.
+        // El recognition SIGUE CORRIENDO, pero ignora los resultados
+        // en onresult mientras isSpeaking === true.
+        // Esto evita el problema de restarts fallidos del enfoque
+        // anterior que usaba recognition.stop().
+        if (this.voiceRecognition) {
+          this.voiceRecognition.muteForTTS();
+        }
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'es-ES';
+        utterance.rate = 0.95;
+        utterance.pitch = 0.9;
+        utterance.volume = 1.0;
+
+        // Intentar usar una voz en español
+        const voices = speechSynthesis.getVoices();
+        const spanishVoice = voices.find(v => v.lang.startsWith('es'));
+        if (spanishVoice) utterance.voice = spanishVoice;
+
+        // ── REANUDACIÓN TRAS TTS ──
+        // Cuando el TTS termina, desactivamos la bandera isSpeaking.
+        // El recognition nunca se detuvo, simplemente vuelve a procesar.
+        utterance.onend = () => {
+          if (this.voiceRecognition) {
+            this.voiceRecognition.unmuteAfterTTS();
+          }
+        };
+
+        // Si el TTS falla o es interrumpido, también desactivar la bandera
+        utterance.onerror = () => {
+          if (this.voiceRecognition) {
+            this.voiceRecognition.unmuteAfterTTS();
+          }
+        };
+
+        speechSynthesis.speak(utterance);
+      }
+
+      /* ---- Manejo de acciones del usuario ---- */
+
+      handlePoint(team) {
+        // Si aún no se ha elegido quién saca, el toque selecciona el saque
+        if (!this.serveChosen) {
+          this.selectServe(team);
+          return;
+        }
+        if (this.match.matchOver) return;
+
+        const result = this.match.scorePoint(team);
+        if (!result) return;
+
+        const state = this.match.getState();
+
+        // Animar el punto
+        this._animatePoint(team);
+
+        // Renderizar
+        this.render();
+
+        // Cantar el marcador
+        const announcement = this._buildAnnouncement(result, state);
+        this._announce(announcement);
+
+        // Mostrar victoria si aplica
+        if (state.matchOver) {
+          this._showVictory(state.matchWinner);
+        }
+      }
+
+      handleUndo() {
+        // Cancelar audio en curso
+        this._silenceVoice();
+
+        if (this.match.undo()) {
+          this.render();
+          this._showToast('⟲ Punto deshecho');
+
+          // Ocultar victoria si estaba visible
+          this.dom.victoryOverlay.classList.remove('visible');
+        } else {
+          this._showToast('Nada que deshacer');
+        }
+      }
+
+      showResetModal() {
+        // Cancelar audio
+        this._silenceVoice();
+        this.dom.resetModal.classList.add('visible');
+      }
+
+      hideResetModal() {
+        this.dom.resetModal.classList.remove('visible');
+      }
+
+      confirmReset() {
+        this._silenceVoice();
+        this.match.reset();
+        this.hideResetModal();
+        this.dom.victoryOverlay.classList.remove('visible');
+        this.render();
+        this._showToast('🔄 Partido reiniciado');
+        // Volver a la selección de equipos
+        this.showPlayerSelect();
+      }
+
+      /* ---- Renderizado del DOM ---- */
+
+      render() {
+        const state = this.match.getState();
+
+        // Puntos del juego actual
+        this.dom.pointA.textContent = state.pointDisplay[0];
+        this.dom.pointB.textContent = state.pointDisplay[1];
+
+        // Clase de ventaja para tamaño reducido
+        this.dom.pointA.classList.toggle('advantage', state.pointDisplay[0] === 'AD');
+        this.dom.pointB.classList.toggle('advantage', state.pointDisplay[1] === 'AD');
+
+        // Sets y juegos
+        this._renderSets(this.dom.setsA, state, 0);
+        this._renderSets(this.dom.setsB, state, 1);
+
+        // Indicador de servicio
+        this.dom.serveA.classList.toggle('active', state.serving === 0);
+        this.dom.serveB.classList.toggle('active', state.serving === 1);
+
+        // Badge de tie-break
+        this.dom.tiebreakBadge.classList.toggle('visible', state.isTiebreak);
+      }
+
+      _renderSets(container, state, team) {
+        let html = '';
+        for (let i = 0; i <= 2; i++) {
+          const games = state.games[i][team];
+          let cls = 'set-score';
+
+          if (i === state.currentSet && !state.matchOver) {
+            cls += ' current';
+          } else if (i < state.currentSet) {
+            // Determinar si este equipo ganó el set
+            const won = state.games[i][team] > state.games[i][1 - team];
+            if (won) cls += ' won';
+          }
+
+          // Solo mostrar sets jugados o el actual
+          if (i <= state.currentSet) {
+            html += `<span class="${cls}">${games}</span>`;
+          }
+        }
+        container.innerHTML = html;
+      }
+
+      /* ---- Animaciones y feedback visual ---- */
+
+      _animatePoint(team) {
+        const el = team === 0 ? this.dom.pointA : this.dom.pointB;
+        el.classList.remove('point-animate');
+        // Forzar reflow para reiniciar la animación
+        void el.offsetWidth;
+        el.classList.add('point-animate');
+      }
+
+      _showToast(text) {
+        this.dom.toast.textContent = text;
+        this.dom.toast.classList.add('visible');
+        clearTimeout(this._toastTimer);
+        this._toastTimer = setTimeout(() => {
+          this.dom.toast.classList.remove('visible');
+        }, 1200);
+      }
+
+      _showVictory(winner) {
+        this.dom.victoryText.textContent = '🏆 ¡Victoria!';
+        this.dom.victorySubtext.textContent = `${this.teamNames[winner]} gana el partido`;
+        this.dom.victoryOverlay.classList.add('visible');
+      }
+    }
+
+
+    /* =====================================================================
+     *  ██████  SECCIÓN 5: INICIALIZACIÓN
+     * ===================================================================== */
+
+    // Arrancar la app cuando el DOM esté listo
+    document.addEventListener('DOMContentLoaded', () => {
+      window.app = new PadelApp();
+    });
+
+    // Prevenir zoom accidental con gestos
+    document.addEventListener('gesturestart', (e) => e.preventDefault());
+    document.addEventListener('dblclick', (e) => e.preventDefault());
+
+    // Prevenir el menú contextual en mobile
+    document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  </script>
+</body>
+</html>
